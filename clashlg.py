@@ -1,4 +1,5 @@
 import random
+import pandas as pd
 
 # ------------------------------
 # HELPER FUNCTIONS
@@ -38,7 +39,6 @@ class Card:
         return round(sum(self.stats.values()) / len(self.stats),1)
 
     def update_elixir(self):
-        # Dynamic elixir based on stats/performance
         self.elixir_current = max(1, min(10, self.ovr_power/10 + random.uniform(-0.5,0.5)))
 
     def assign_grade(self):
@@ -70,8 +70,8 @@ class League:
         self.teams = [Team() for _ in range(30)]
         self.history = {'champions': [], 'awards': []}
 
+    # Simulate single game between first card of two teams
     def simulate_game(self, team1, team2):
-        # Pick first card from each team
         card1 = team1.cards[0]
         card2 = team2.cards[0]
 
@@ -79,11 +79,11 @@ class League:
         rng_factor = random.uniform(-0.25,0.25)
         total = stat_factor + rng_factor
 
-        # Clutch play
+        # Clutch plays
         card1.clutch_play = random.random() < 0.02
         card2.clutch_play = random.random() < 0.02
 
-        # Scoring per card
+        # Score calculation
         if total > 0:
             score1, score2 = 3, -2
             if card1.clutch_play: score1 +=5
@@ -95,15 +95,15 @@ class League:
             team2.wins +=1
             team1.losses +=1
 
-        # Winning streak logic (≥5)
+        # Winning streak bonus
         if team1.wins >=5: score1 += team1.wins -4
         if team2.wins >=5: score2 += team2.wins -4
 
-        # Contribution update
+        # Update contributions
         card1.contribution_pct += max(0, score1)
         card2.contribution_pct += max(0, score2)
 
-        # Update dynamic elixir and grades
+        # Update elixir & grades
         card1.update_elixir(); card2.update_elixir()
         card1.assign_grade(); card2.assign_grade()
 
@@ -113,19 +113,45 @@ class League:
 
         return score1, score2
 
-    def season_summary(self):
-        summary = []
-        for team in self.teams:
-            summary.append({
-                'team': team.name,
-                'wins': team.wins,
-                'losses': team.losses,
-                'cards': [(c.name, c.ovr_power, c.grade, round(c.elixir_current,1)) for c in team.cards]
-            })
-        return summary
+    # Simulate full season: 40 games per team
+    def simulate_season(self):
+        for _ in range(40):
+            teams = self.teams.copy()
+            random.shuffle(teams)
+            for i in range(0,len(teams),2):
+                self.simulate_game(teams[i], teams[i+1])
 
+    # Season summary as DataFrame for Streamlit
+    def season_summary_df(self):
+        data = []
+        for t in self.teams:
+            for c in t.cards:
+                data.append({
+                    'Team': t.name,
+                    'Color': t.color,
+                    'Card': c.name,
+                    'OVR': c.ovr_power,
+                    'Grade': c.grade,
+                    'Elixir': c.elixir_current,
+                    'Contribution': c.contribution_pct,
+                    'Clutch': c.clutch_play
+                })
+        return pd.DataFrame(data)
+
+    # Standings as DataFrame
+    def standings_df(self):
+        data = []
+        for t in self.teams:
+            data.append({
+                'Team': t.name,
+                'Color': t.color,
+                'Wins': t.wins,
+                'Losses': t.losses
+            })
+        return pd.DataFrame(data)
+
+    # Assign awards
     def assign_awards(self):
-        # Highest contribution card
         all_cards = [c for t in self.teams for c in t.cards]
         top_contrib = max(all_cards, key=lambda x: x.contribution_pct)
         top_score = max(all_cards, key=lambda x: x.ovr_power)
@@ -135,7 +161,3 @@ class League:
             'Top Contribution': top_contrib.name,
             'Top Scorer': top_score.name
         })
-
-    def top_meta_cards(self, n=10):
-        all_cards = [c for t in self.teams for c in t.cards]
-        return sorted(all_cards, key=lambda x: x.ovr_power, reverse=True)[:n]
