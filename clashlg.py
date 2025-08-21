@@ -70,7 +70,6 @@ class Team:
         self.wins = 0
         self.losses = 0
         self.played_games = []
-        self.streak = 0
 
 # ------------------------------
 # LEAGUE CLASS
@@ -116,7 +115,7 @@ class League:
 
         return score1, score2
 
-    def simulate_season(self):
+    def simulate_full_season(self):
         for _ in range(40):
             teams = self.teams.copy()
             random.shuffle(teams)
@@ -135,7 +134,7 @@ class League:
             })
         return pd.DataFrame(data)
 
-    def season_summary_df(self):
+    def cards_df(self):
         data = []
         for t in self.teams:
             for c in t.cards:
