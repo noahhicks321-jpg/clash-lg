@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import random
 from clashlg import League
 
 # ------------------------------
@@ -35,7 +36,7 @@ if tab == "🏠 Home":
 
     with col2:
         if st.button("Simulate Full Season"):
-            league.simulate_season()
+            league.simulate_full_season()
             league.assign_awards()
             st.success("🏆 Full Season Simulated & Awards Assigned!")
 
@@ -45,15 +46,15 @@ if tab == "🏠 Home":
 elif tab == "📊 Standings":
     st.header("Team Standings")
     df = league.standings_df().sort_values(by="Wins", ascending=False)
-    st.dataframe(df.style.format({'Logo': '{}'}).set_properties(**{'text-align':'center'}))
+    st.dataframe(df.style.set_properties(**{'text-align':'center'}))
 
 # ------------------------------
 # CARD STATS
 # ------------------------------
 elif tab == "🃏 Card Stats":
     st.header("All Card Stats")
-    df = league.season_summary_df().sort_values(by="OVR", ascending=False)
-    st.dataframe(df.style.format({'Card Icon': '{}', 'Team Logo':'{}'}).set_properties(**{'text-align':'center'}))
+    df = league.cards_df().sort_values(by="OVR", ascending=False)
+    st.dataframe(df.style.set_properties(**{'text-align':'center'}))
 
 # ------------------------------
 # SEASON SUMMARY
@@ -62,6 +63,7 @@ elif tab == "📜 Season Summary":
     st.header("Season Summary & Awards")
     st.subheader("Standings")
     st.dataframe(league.standings_df().sort_values(by="Wins", ascending=False))
+
     st.subheader("Awards")
     if league.history['awards']:
         st.json(league.history['awards'][-1])
@@ -86,4 +88,4 @@ elif tab == "🔥 Top Meta Cards":
             'Clutch': c.clutch_play
         })
     df_top = pd.DataFrame(data)
-    st.dataframe(df_top.style.format({'Card Icon':'{}'}).set_properties(**{'text-align':'center'}))
+    st.dataframe(df_top.style.set_properties(**{'text-align':'center'}))
