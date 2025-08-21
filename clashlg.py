@@ -13,12 +13,21 @@ def generate_team_color():
     colors = ['Red', 'Blue', 'Green', 'Yellow', 'Purple', 'Orange', 'Teal', 'Pink']
     return random.choice(colors)
 
+def generate_team_logo():
+    emojis = ['🔥','⚡','🛡️','🗡️','🐉','🦅','🦄','🐺','🦁','👑']
+    return random.choice(emojis)
+
+def generate_card_icon():
+    icons = ['⚔️','🏹','🪄','🛡️','💥','🧿','🔥','🧱','🌪️','🦴']
+    return random.choice(icons)
+
 # ------------------------------
 # CARD CLASS
 # ------------------------------
 class Card:
     def __init__(self):
         self.name = generate_random_name()
+        self.icon = generate_card_icon()
         self.stats = {
             'atk': random.randint(50,100),
             'defense': random.randint(50,100),
@@ -56,6 +65,7 @@ class Team:
     def __init__(self):
         self.name = generate_random_name()
         self.color = generate_team_color()
+        self.logo = generate_team_logo()
         self.cards = [Card(), Card()]
         self.wins = 0
         self.losses = 0
@@ -70,7 +80,6 @@ class League:
         self.teams = [Team() for _ in range(30)]
         self.history = {'champions': [], 'awards': []}
 
-    # Simulate single game between first card of two teams
     def simulate_game(self, team1, team2):
         card1 = team1.cards[0]
         card2 = team2.cards[0]
@@ -79,11 +88,9 @@ class League:
         rng_factor = random.uniform(-0.25,0.25)
         total = stat_factor + rng_factor
 
-        # Clutch plays
         card1.clutch_play = random.random() < 0.02
         card2.clutch_play = random.random() < 0.02
 
-        # Score calculation
         if total > 0:
             score1, score2 = 3, -2
             if card1.clutch_play: score1 +=5
@@ -95,25 +102,20 @@ class League:
             team2.wins +=1
             team1.losses +=1
 
-        # Winning streak bonus
         if team1.wins >=5: score1 += team1.wins -4
         if team2.wins >=5: score2 += team2.wins -4
 
-        # Update contributions
         card1.contribution_pct += max(0, score1)
         card2.contribution_pct += max(0, score2)
 
-        # Update elixir & grades
         card1.update_elixir(); card2.update_elixir()
         card1.assign_grade(); card2.assign_grade()
 
-        # Record game
         team1.played_games.append((team2.name, score1, score2))
         team2.played_games.append((team1.name, score2, score1))
 
         return score1, score2
 
-    # Simulate full season: 40 games per team
     def simulate_season(self):
         for _ in range(40):
             teams = self.teams.copy()
@@ -121,14 +123,27 @@ class League:
             for i in range(0,len(teams),2):
                 self.simulate_game(teams[i], teams[i+1])
 
-    # Season summary as DataFrame for Streamlit
+    def standings_df(self):
+        data = []
+        for t in self.teams:
+            data.append({
+                'Logo': t.logo,
+                'Team': t.name,
+                'Color': t.color,
+                'Wins': t.wins,
+                'Losses': t.losses
+            })
+        return pd.DataFrame(data)
+
     def season_summary_df(self):
         data = []
         for t in self.teams:
             for c in t.cards:
                 data.append({
+                    'Team Logo': t.logo,
                     'Team': t.name,
                     'Color': t.color,
+                    'Card Icon': c.icon,
                     'Card': c.name,
                     'OVR': c.ovr_power,
                     'Grade': c.grade,
@@ -138,19 +153,6 @@ class League:
                 })
         return pd.DataFrame(data)
 
-    # Standings as DataFrame
-    def standings_df(self):
-        data = []
-        for t in self.teams:
-            data.append({
-                'Team': t.name,
-                'Color': t.color,
-                'Wins': t.wins,
-                'Losses': t.losses
-            })
-        return pd.DataFrame(data)
-
-    # Assign awards
     def assign_awards(self):
         all_cards = [c for t in self.teams for c in t.cards]
         top_contrib = max(all_cards, key=lambda x: x.contribution_pct)
@@ -161,3 +163,7 @@ class League:
             'Top Contribution': top_contrib.name,
             'Top Scorer': top_score.name
         })
+
+    def top_meta_cards(self, n=10):
+        all_cards = [c for t in self.teams for c in t.cards]
+        return sorted(all_cards, key=lambda x: x.ovr_power, reverse=True)[:n]
