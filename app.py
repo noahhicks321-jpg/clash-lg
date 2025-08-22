@@ -15,9 +15,9 @@ st.set_page_config(layout="wide")
 st.title("⚔️ Clash Fantasy League Dashboard")
 
 # ------------------------------
-# TABS
+# NAVIGATION TABS
 # ------------------------------
-tabs = ["🏠 Home", "📊 Standings", "🃏 Card Stats", "📜 Season Summary", "🔥 Top Meta Cards"]
+tabs = ["🏠 Home", "📊 Standings", "🃏 Card Info", "🏟️ Team Info", "🔥 Top Meta Cards", "📜 Season Summary"]
 tab = st.sidebar.radio("Navigation", tabs)
 
 # ------------------------------
@@ -49,26 +49,20 @@ elif tab == "📊 Standings":
     st.dataframe(df.style.set_properties(**{'text-align':'center'}))
 
 # ------------------------------
-# CARD STATS
+# CARD INFO
 # ------------------------------
-elif tab == "🃏 Card Stats":
+elif tab == "🃏 Card Info":
     st.header("All Card Stats")
     df = league.cards_df().sort_values(by="OVR", ascending=False)
-    st.dataframe(df.style.set_properties(**{'text-align':'center'}))
+    st.dataframe(df.style.format({'OVR': '{:.1f}', 'Elixir': '{:.1f}'}).set_properties(**{'text-align':'center'}))
 
 # ------------------------------
-# SEASON SUMMARY
+# TEAM INFO
 # ------------------------------
-elif tab == "📜 Season Summary":
-    st.header("Season Summary & Awards")
-    st.subheader("Standings")
-    st.dataframe(league.standings_df().sort_values(by="Wins", ascending=False))
-
-    st.subheader("Awards")
-    if league.history['awards']:
-        st.json(league.history['awards'][-1])
-    else:
-        st.write("No awards yet. Simulate a season to assign awards.")
+elif tab == "🏟️ Team Info":
+    st.header("Team Profiles & Card Details")
+    df = league.team_info_df()
+    st.dataframe(df.style.format({'OVR': '{:.1f}', 'Elixir': '{:.1f}'}).set_properties(**{'text-align':'center'}))
 
 # ------------------------------
 # TOP META CARDS
@@ -88,4 +82,18 @@ elif tab == "🔥 Top Meta Cards":
             'Clutch': c.clutch_play
         })
     df_top = pd.DataFrame(data)
-    st.dataframe(df_top.style.set_properties(**{'text-align':'center'}))
+    st.dataframe(df_top.style.format({'OVR':'{:.1f}','Elixir':'{:.1f}'}).set_properties(**{'text-align':'center'}))
+
+# ------------------------------
+# SEASON SUMMARY
+# ------------------------------
+elif tab == "📜 Season Summary":
+    st.header("Season Summary & Awards")
+    st.subheader("Standings")
+    st.dataframe(league.standings_df().sort_values(by="Wins", ascending=False))
+    
+    st.subheader("Top Awards")
+    if league.history['awards']:
+        st.json(league.history['awards'][-1])
+    else:
+        st.write("No awards yet. Simulate a season to assign awards.")
