@@ -1,6 +1,5 @@
 # clashlg.py
-import random
-import pickle
+import random, pickle
 from datetime import datetime, timedelta
 
 # ------------------------------
@@ -16,7 +15,6 @@ def generate_unique_names(prefix_list, used_names, count):
     return names
 
 def generate_logo():
-    # Simple unicode logos
     logos = ["🔥","💎","⚡","🌟","🛡️","🏹","⚔️","🎯","🌀","🌈","🏆","🦄","🐉","🦅","🐺","🦁"]
     return random.choice(logos)
 
@@ -27,26 +25,23 @@ class Card:
     def __init__(self, name):
         self.name = name
         self.icon = generate_logo()
-        # Stats 0-100
         self.attack = round(random.uniform(40,100),1)
         self.defense = round(random.uniform(40,100),1)
         self.hit_speed = round(random.uniform(40,100),1)
         self.speed = round(random.uniform(40,100),1)
-        # Derived stats
         self.ovr_power = round((self.attack*0.3 + self.defense*0.3 + self.hit_speed*0.2 + self.speed*0.2),1)
         self.grade = self.assign_grade()
         self.contribution_pct_value = 50.0
-        self.clutch_pct_value = round(random.uniform(0,5),1)  # Starting clutch chance
+        self.clutch_pct_value = round(random.uniform(0,5),1)
         self.elixir_current = round(max(1,min(10,self.ovr_power/10)),1)
         self.dominance = 0.0
-        # Score stats
         self.wins = 0
         self.losses = 0
         self.clutch_plays = 0
         self.damage_dealt = 0
         self.defensive_plays = 0
-        # Contract history
         self.contracts = []
+        self.history = []  # per-game highlights
 
     def assign_grade(self):
         if self.ovr_power >= 90: return 'A+'
@@ -60,9 +55,8 @@ class Card:
         else: self.losses +=1
         self.damage_dealt += damage
         self.defensive_plays += defense
-        if clutch:
-            self.clutch_plays +=1
-        # Update OVR slightly with performance
+        if clutch: self.clutch_plays +=1
+        self.history.append({"won":won,"damage":damage,"defense":defense,"clutch":clutch})
         perf = (damage + defense + (clutch*50))/300*10
         self.ovr_power = round(min(100,max(1,self.ovr_power + perf)),1)
         self.grade = self.assign_grade()
@@ -83,6 +77,7 @@ class Team:
         self.losses = 0
         self.streak = ""
         self.played_games = []
+        self.strategy = random.choice(["Aggressive","Balanced","Defensive"])
 
     def add_card(self, card):
         self.cards.append(card)
@@ -109,15 +104,14 @@ class League:
         self.season = 1
         self.history = []
         self.playoffs = []
+        self.hall_of_fame = []
 
     def create_teams_and_cards(self):
         used_names = set()
         prefixes = ["Red","Blue","Green","Golden","Silver","Shadow","Dragon","Knight","Phoenix","Storm","Thunder","Frost","Iron","Wild","Fire","Dark"]
         team_names = generate_unique_names(prefixes, used_names, 30)
         card_names = generate_unique_names(prefixes, used_names, 80)
-        # Create cards
         self.cards = [Card(name) for name in card_names]
-        # Assign 2 cards per team
         for i in range(30):
             team = Team(team_names[i])
             team.add_card(self.cards[i*2])
@@ -131,18 +125,22 @@ class League:
                 c.contribution_pct_value = round(c.ovr_power / total_ovr * 100,1) if total_ovr>0 else 50
 
     def simulate_game(self, team1, team2):
-        score1 = sum([c.ovr_power for c in team1.cards])*0.75 + random.uniform(0,50)
-        score2 = sum([c.ovr_power for c in team2.cards])*0.75 + random.uniform(0,50)
-        # Clutch
+        # AI strategy influence
+        t1_modifier = 1.1 if team1.strategy=="Aggressive" else 0.95 if team1.strategy=="Defensive" else 1
+        t2_modifier = 1.1 if team2.strategy=="Aggressive" else 0.95 if team2.strategy=="Defensive" else 1
+        score1 = sum([c.ovr_power for c in team1.cards])*0.75*t1_modifier + random.uniform(0,50)
+        score2 = sum([c.ovr_power for c in team2.cards])*0.75*t2_modifier + random.uniform(0,50)
+        # Clutch and card updates
         for c in team1.cards + team2.cards:
             clutch = random.random()<0.02
             c.update_stats_post_game(score1>score2 if c in team1.cards else score2>score1,
                                      damage=random.randint(50,200),
                                      defense=random.randint(20,100),
                                      clutch=clutch)
-        # Update team results
-        if score1>score2: team1.wins+=1; team2.losses+=1
-        else: team2.wins+=1; team1.losses+=1
+        if score1>score2:
+            team1.wins+=1; team2.losses+=1
+        else:
+            team2.wins+=1; team1.losses+=1
         team1.played_games.append((team2.name, score1, score2))
         team2.played_games.append((team1.name, score2, score1))
         team1.update_streak()
@@ -154,6 +152,28 @@ class League:
         for _ in range(40):
             for i in range(0,len(self.teams),2):
                 self.simulate_game(self.teams[i], self.teams[i+1])
+        self.playoffs = sorted(self.teams, key=lambda x:x.wins, reverse=True)[:16]
+
+    def simulate_playoffs(self):
+        # BO3 for top 16
+        bracket = self.playoffs[:]
+        winners = []
+        while len(bracket)>1:
+            next_round = []
+            for i in range(0, len(bracket),2):
+                t1 = bracket[i]; t2 = bracket[i+1]
+                t1_score=0; t2_score=0
+                for _ in range(3):
+                    s1,s2 = self.simulate_game(t1,t2)
+                    if s1>s2: t1_score+=1
+                    else: t2_score+=1
+                    if t1_score==2 or t2_score==2: break
+                next_round.append(t1 if t1_score>t2_score else t2)
+            bracket = next_round
+        champion = bracket[0]
+        self.history.append({"season":self.season,"champion":champion.name})
+        self.hall_of_fame.append(champion)
+        return champion
 
     def calculate_dominance(self):
         top_ovr = max([c.ovr_power for c in self.cards])
@@ -165,7 +185,7 @@ class League:
         return sorted(self.cards, key=lambda x: x.ovr_power, reverse=True)[:top_n]
 
     # ------------------------------
-    # SAVE / LOAD LEAGUE
+    # SAVE / LOAD
     # ------------------------------
     def save_league(self, filename="league_save.pkl"):
         with open(filename,"wb") as f:
