@@ -1,6 +1,6 @@
 # ==========================
 # File: app.py
-# Streamlit UI for Clash Royale League (with Next Season Rollover)
+# Streamlit UI for Clash Royale League
 # ==========================
 
 import streamlit as st
@@ -8,10 +8,11 @@ import pandas as pd
 from PIL import Image
 from clashlg import ClashLeague, Card, LOGO_FOLDER, MAX_BALANCE_CHANGE, SEASON_GAMES
 
+st.set_page_config(page_title="Clash Royale League",layout="wide")
+
 # --------------------------
 # INIT LEAGUE
 # --------------------------
-st.set_page_config(page_title="Clash Royale League", layout="wide")
 if "league" not in st.session_state:
     st.session_state.league = ClashLeague()
 league = st.session_state.league
@@ -35,24 +36,20 @@ if page=="Home":
         if st.button("Sim 10 Games"): league.simulate_games(10)
         if st.button("Sim 40 Games"): league.simulate_games(40)
         if st.button("Sim Full Season"): league.simulate_games(len(league.cards)*41)
-
         if st.button("Save Game"): league.save()
         if st.button("Load Game"): league.load()
 
         st.subheader("Season Management")
         if st.button("Next Season / Rollover"):
-            # Save previous season placements
             df = league.standings()
             for c in league.cards:
-                placement = df[df["Name"]==c.name].index[0]+1
+                placement=df[df["Name"]==c.name].index[0]+1
                 c.placements.append(placement)
-            # Reset season stats
-            for c in league.cards:
-                c.record = {"wins":0, "losses":0}
-                c.streak = 0
+                c.record={"wins":0,"losses":0}
+                c.streak=0
             league.calendar = league.generate_calendar()
-            league.season += 1
-            league.balance_changes_done = False
+            league.season+=1
+            league.balance_changes_done=False
             st.success(f"Season rolled over to Season {league.season}!")
 
     with col2:
@@ -60,7 +57,7 @@ if page=="Home":
         df = league.standings().head(10)
         for idx,row in df.iterrows():
             logo = Image.open(row["Logo"])
-            st.image(logo, width=40, caption=f"{row['Name']} ({row['Grade']})")
+            st.image(logo,width=40,caption=f"{row['Name']} ({row['Grade']})")
             st.write(f"W:{row['W']}  L:{row['L']}  OVR:{row['OVR']}")
 
 # --------------------------
@@ -68,8 +65,8 @@ if page=="Home":
 # --------------------------
 elif page=="Card Stats":
     st.title("📊 Card Stats")
-    df = league.standings()
-    st.dataframe(df[["Name","W","L","Win%","OVR","Grade","Streak"]], use_container_width=True)
+    df=league.standings()
+    st.dataframe(df[["Name","W","L","Win%","OVR","Grade","Streak"]],use_container_width=True)
 
 # --------------------------
 # STANDINGS TAB
@@ -77,16 +74,27 @@ elif page=="Card Stats":
 elif page=="Standings":
     st.title("📈 Standings")
     df = league.standings()
-    st.dataframe(df[["Name","W","L","Win%","OVR","Grade","Streak"]], use_container_width=True)
+    buff_nerf=[]
+    last_changes = league.patch_notes.get("balance",[])
+    for c in df["Name"]:
+        entry = next((x for x in last_changes if x["name"]==c), None)
+        if entry:
+            total_change=sum(entry["diffs"].values())
+            if total_change>0: buff_nerf.append("B")
+            elif total_change<0: buff_nerf.append("N")
+            else: buff_nerf.append("")
+        else: buff_nerf.append("")
+    df["B/N"]=buff_nerf
+    st.dataframe(df[["Name","B/N","W","L","Win%","OVR","Grade","Streak"]],use_container_width=True)
 
 # --------------------------
 # CARD INFO TAB
 # --------------------------
 elif page=="Card Info":
     st.title("🔍 Card Info")
-    card_name = st.selectbox("Select Card", [c.name for c in league.cards])
-    card = next(c for c in league.cards if c.name==card_name)
-    st.image(card.logo_path, width=80)
+    card_name=st.selectbox("Select Card",[c.name for c in league.cards])
+    card=next(c for c in league.cards if c.name==card_name)
+    st.image(card.logo_path,width=80)
     st.write(f"**ATK DMG:** {card.atk_dmg}")
     st.write(f"**ATK TYPE:** {card.atk_type}")
     st.write(f"**ATK SPEED:** {card.atk_speed}")
@@ -158,20 +166,17 @@ elif page=="Balance Changes":
         st.warning("Balance changes already applied this season.")
     else:
         st.write(f"Select up to {MAX_BALANCE_CHANGE} cards to edit stats:")
-        selected_cards = st.multiselect("Cards", [c.name for c in league.cards])
+        selected_cards=st.multiselect("Cards",[c.name for c in league.cards])
         edited_cards=[]
         for cname in selected_cards[:MAX_BALANCE_CHANGE]:
             card=next(c for c in league.cards if c.name==cname)
             with st.expander(f"{card.name}"):
-                atk_dmg = st.slider("ATK DMG",50,1500,card.atk_dmg,key=f"dmg_{card.name}")
-                health = st.slider("HEALTH",500,3000,card.health,key=f"hp_{card.name}")
-                atk_speed = st.slider("ATK SPEED",0.5,3.0,float(card.atk_speed),0.1,key=f"spd_{card.name}")
-                range_ = st.slider("RANGE",1,10,card.range,key=f"range_{card.name}")
-                edited_cards.append({"name":card.name,"atk_dmg":atk_dmg,"health":health,"atk_speed":atk_speed,"range":range_})
-        if st.button("Apply Balance Changes"):
-            applied=league.apply_balance_changes(edited_cards)
-            st.success("Balance changes applied!")
-            st.subheader("Patch Notes")
-            for entry in applied:
-                st.write(f"{entry['name']}:")
-                st.json(entry["diffs"])
+                atk_dmg=st.slider("ATK DMG",50,1500,card.atk_dmg,key=f"dmg_{card.name}")
+                health=st.slider("HEALTH",500,3000,card.health,key=f"hp_{card.name}")
+                atk_speed=st.slider("ATK SPEED",0.5,3.0,float(card.atk_speed),0.1,key=f"spd_{card.name}")
+                rng=st.slider("RANGE",1,10,card.range,key=f"rng_{card.name}")
+                edited_cards.append({"name":card.name,"atk_dmg":atk_dmg,"health":health,"atk_speed":atk_speed,"range":rng})
+        if st.button("Apply Changes") and edited_cards:
+            changes=league.apply_balance_changes(edited_cards)
+            st.success("Balance Changes Applied!")
+            st.json(changes)
