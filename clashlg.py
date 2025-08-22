@@ -1,6 +1,6 @@
 # ==========================
 # File: clashlg.py
-# Backend engine for Clash Royale League (Fixed logo generation for Pillow >=10)
+# Backend engine for Clash Royale League (Pillow >=10 compatible)
 # ==========================
 
 import random
@@ -12,14 +12,14 @@ from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont
 
 # --------------------------
-# CONFIGURATION
+# CONFIG
 # --------------------------
 SEASON_GAMES = 82
 PLAYOFF_TEAMS = 32
 MAX_BALANCE_CHANGE = 11
 SAVE_FILE = "league_state.json"
 LOGO_FOLDER = Path("logos")
-LOGO_SIZE = (64, 64)
+LOGO_SIZE = (64,64)
 
 CARD_NAMES = [
     "Knight","Archers","Goblins","Giant","P.E.K.K.A","Mini P.E.K.K.A","Hog Rider","Musketeer","Baby Dragon",
@@ -31,68 +31,62 @@ CARD_NAMES = [
     "Guards","Dark Prince","Bowler","Executioner","Fisherman","Zappies","Rascals","Mother Witch","Royal Champion",
     "Mortar","X-Bow","Tesla","Cannon","Bomb Tower","Inferno Tower","Goblin Hut","Barbarian Hut","Furnace","Tombstone",
     "Elixir Golem","Golem","Ice Golem","Skeletons","Graveyard","Clone","Freeze","Lightning"
-]
-CARD_NAMES = CARD_NAMES[:80]  # ensure exactly 80
+][:80]  # exactly 80 cards
 
 # --------------------------
 # CARD CLASS
 # --------------------------
 class Card:
-    def __init__(self, name):
+    def __init__(self,name):
         self.name = name
-        self.atk_dmg = random.randint(80, 1200)
+        self.atk_dmg = random.randint(80,1200)
         self.atk_type = random.choice(["Ground Melee","Air Melee","Ground Ranged","Air Ranged"])
-        self.atk_speed = round(random.uniform(1.0, 3.0), 2)  # sec per hit
+        self.atk_speed = round(random.uniform(1.0,3.0),2)
         self.card_speed = random.choice(["Very Slow","Slow","Medium","Fast","Very Fast"])
-        self.range = random.randint(1, 10)
-        self.health = random.randint(900, 2500)
-        self.record = {"wins":0, "losses":0}
+        self.range = random.randint(1,10)
+        self.health = random.randint(900,2500)
+        self.record = {"wins":0,"losses":0}
         self.streak = 0
         self.awards = []
         self.championships = 0
         self.placements = []
-        self.logo_path = LOGO_FOLDER / f"{self.name}.png"
+        self.logo_path = LOGO_FOLDER/f"{self.name}.png"
         self.generate_logo()
 
     def overall_rating(self):
-        dmg = (self.atk_dmg / 1200) * 100 * 0.19
-        spd = (3.0 - self.atk_speed)/2.0 * 100 * 0.11
-        rng = (self.range / 10) * 100 * 0.07
-        hp = (self.health / 2500) * 100 * 0.22
-        type_val = 0.09 * (100 if "Ranged" in self.atk_type else 70)
+        dmg = (self.atk_dmg / 1200)*100*0.19
+        spd = (3.0-self.atk_speed)/2.0*100*0.11
+        rng = (self.range/10)*100*0.07
+        hp = (self.health/2500)*100*0.22
+        type_val = 0.09*(100 if "Ranged" in self.atk_type else 70)
         speed_val = {"Very Slow":60,"Slow":70,"Medium":80,"Fast":90,"Very Fast":100}[self.card_speed]*0.16
         rng_factor = random.randint(60,100)*0.16
         return round(dmg+spd+rng+hp+type_val+speed_val+rng_factor)
 
     def grade(self):
         ovr = self.overall_rating()
-        if ovr >= 98: return "Meta"
-        elif ovr >= 95: return "A+"
-        elif ovr >= 90: return "A"
-        elif ovr >= 84: return "B"
-        elif ovr >= 77: return "C"
-        elif ovr >= 71: return "D"
+        if ovr>=98: return "Meta"
+        elif ovr>=95: return "A+"
+        elif ovr>=90: return "A"
+        elif ovr>=84: return "B"
+        elif ovr>=77: return "C"
+        elif ovr>=71: return "D"
         else: return "F"
 
     def generate_logo(self):
         if not LOGO_FOLDER.exists():
             LOGO_FOLDER.mkdir()
         if not self.logo_path.exists():
-            img = Image.new("RGB", LOGO_SIZE, color=(random.randint(50,200),
-                                                     random.randint(50,200),
-                                                     random.randint(50,200)))
+            img = Image.new("RGB",LOGO_SIZE,color=(random.randint(50,200),random.randint(50,200),random.randint(50,200)))
             draw = ImageDraw.Draw(img)
             try:
-                font = ImageFont.truetype("arial.ttf", 12)
+                font = ImageFont.truetype("arial.ttf",12)
             except:
                 font = ImageFont.load_default()
             text = self.name[:2].upper()
-
-            # Pillow >=10 compatible: use textbbox
-            bbox = draw.textbbox((0, 0), text, font=font)
-            w, h = bbox[2] - bbox[0], bbox[3] - bbox[1]
-
-            draw.text(((LOGO_SIZE[0]-w)/2, (LOGO_SIZE[1]-h)/2), text, font=font, fill="white")
+            bbox = draw.textbbox((0,0),text,font=font)
+            w,h = bbox[2]-bbox[0], bbox[3]-bbox[1]
+            draw.text(((LOGO_SIZE[0]-w)/2,(LOGO_SIZE[1]-h)/2),text,font=font,fill="white")
             img.save(str(self.logo_path))
 
 # --------------------------
@@ -110,30 +104,27 @@ class ClashLeague:
 
     def generate_calendar(self):
         start_date = datetime.date(2025,7,9)
-        games = []
+        games=[]
         for i in range(SEASON_GAMES):
             date = start_date + datetime.timedelta(days=i*2)
-            games.append({"game":i+1, "date":date, "played":False})
+            games.append({"game":i+1,"date":date,"played":False})
         return games
 
     def simulate_game(self):
-        c1, c2 = random.sample(self.cards,2)
-        ovr1, ovr2 = c1.overall_rating(), c2.overall_rating()
-        if ovr1==ovr2:
-            winner = random.choice([c1,c2])
-        else:
-            winner = c1 if ovr1>ovr2 else c2
+        c1,c2 = random.sample(self.cards,2)
+        ovr1,ovr2 = c1.overall_rating(),c2.overall_rating()
+        if ovr1==ovr2: winner=random.choice([c1,c2])
+        else: winner = c1 if ovr1>ovr2 else c2
         loser = c2 if winner==c1 else c1
         winner.record["wins"]+=1
         loser.record["losses"]+=1
         winner.streak = max(1,winner.streak+1)
         loser.streak = min(-1,loser.streak-1)
-        return winner, loser
+        return winner,loser
 
     def simulate_games(self,n=1):
         results=[]
-        for _ in range(n):
-            results.append(self.simulate_game())
+        for _ in range(n): results.append(self.simulate_game())
         return results
 
     def standings(self):
@@ -147,20 +138,20 @@ class ClashLeague:
         return df.sort_values(by=["W","OVR"],ascending=False).reset_index(drop=True)
 
     def run_playoffs(self):
-        df=self.standings().head(PLAYOFF_TEAMS)
-        teams=df["Name"].tolist()
-        bracket = teams
-        round_names=["Round of 32","Round of 16","Quarterfinals","Semifinals","Finals"]
-        series_wins={"Round of 32":1,"Round of 16":1,"Quarterfinals":2,"Semifinals":2,"Finals":3}
+        df = self.standings().head(PLAYOFF_TEAMS)
+        teams = df["Name"].tolist()
+        round_names = ["Round of 32","Round of 16","Quarterfinals","Semifinals","Finals"]
+        series_wins = {"Round of 32":1,"Round of 16":1,"Quarterfinals":2,"Semifinals":2,"Finals":3}
         results={}
+        bracket = teams
         for rnd in round_names:
             winners=[]
             rnd_results=[]
             for i in range(0,len(bracket),2):
-                t1,t2=bracket[i],bracket[i+1]
+                t1,t2 = bracket[i],bracket[i+1]
                 c1=next(c for c in self.cards if c.name==t1)
                 c2=next(c for c in self.cards if c.name==t2)
-                needed=series_wins[rnd]
+                needed = series_wins[rnd]
                 s1=s2=0
                 while s1<needed and s2<needed:
                     w,l=self.simulate_game()
@@ -175,7 +166,7 @@ class ClashLeague:
         champ_card=next(c for c in self.cards if c.name==champion)
         champ_card.championships+=1
         self.history.append({"season":self.season,"champion":champion,"playoffs":results})
-        return champion, results
+        return champion,results
 
     def assign_awards(self):
         df=self.standings()
@@ -193,7 +184,6 @@ class ClashLeague:
         return awards
 
     def apply_balance_changes(self,changes):
-        """changes: list of dicts {'name':'CardName','atk_dmg':xxx,'health':xxx,...} max 11 cards"""
         applied=[]
         for c in changes[:MAX_BALANCE_CHANGE]:
             card=next(card for card in self.cards if card.name==c["name"])
@@ -207,9 +197,6 @@ class ClashLeague:
         self.patch_notes["balance"]=applied
         return applied
 
-    # --------------------------
-    # SAVE / LOAD
-    # --------------------------
     def save(self):
         data={"season":self.season,"cards":[c.__dict__ for c in self.cards],
               "history":self.history,"calendar":self.calendar,"patch_notes":self.patch_notes,
