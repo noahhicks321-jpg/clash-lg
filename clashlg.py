@@ -1,6 +1,6 @@
 # ==========================
 # File: clashlg.py
-# Backend engine for Clash Royale League
+# Backend engine for Clash Royale League (Fixed logo generation)
 # ==========================
 
 import random
@@ -78,7 +78,9 @@ class Card:
         if not LOGO_FOLDER.exists():
             LOGO_FOLDER.mkdir()
         if not self.logo_path.exists():
-            img = Image.new("RGB", LOGO_SIZE, color=(random.randint(50,200),random.randint(50,200),random.randint(50,200)))
+            img = Image.new("RGB", LOGO_SIZE, color=(random.randint(50,200),
+                                                     random.randint(50,200),
+                                                     random.randint(50,200)))
             draw = ImageDraw.Draw(img)
             font_size = 12
             try:
@@ -86,8 +88,15 @@ class Card:
             except:
                 font = ImageFont.load_default()
             text = self.name[:2].upper()
-            w,h = draw.textsize(text,font=font)
-            draw.text(((LOGO_SIZE[0]-w)/2,(LOGO_SIZE[1]-h)/2), text, font=font, fill="white")
+
+            # Compute text size properly for modern Pillow
+            if hasattr(draw, "textbbox"):
+                bbox = draw.textbbox((0,0), text, font=font)
+                w, h = bbox[2]-bbox[0], bbox[3]-bbox[1]
+            else:
+                w, h = draw.textsize(text, font=font)
+
+            draw.text(((LOGO_SIZE[0]-w)/2, (LOGO_SIZE[1]-h)/2), text, font=font, fill="white")
             img.save(self.logo_path)
 
 # --------------------------
