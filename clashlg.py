@@ -185,6 +185,53 @@ class League:
         return sorted(self.cards, key=lambda x: x.ovr_power, reverse=True)[:top_n]
 
     # ------------------------------
+# PLAYOFFS BO3 LOGIC
+# ------------------------------
+def simulate_playoffs(self):
+    """
+    Simulate top 16 teams in best-of-3 (BO3) playoffs.
+    Updates league.history and hall_of_fame.
+    """
+    # Ensure top 16 by wins
+    self.playoffs = sorted(self.teams, key=lambda x: x.wins, reverse=True)[:16]
+    bracket = self.playoffs[:]
+    
+    round_num = 1
+    while len(bracket) > 1:
+        next_round = []
+        st_round_results = []  # optional, for visualization
+        for i in range(0, len(bracket), 2):
+            t1 = bracket[i]
+            t2 = bracket[i+1]
+            t1_score = 0
+            t2_score = 0
+            # BO3 matches
+            while t1_score < 2 and t2_score < 2:
+                s1, s2 = self.simulate_game(t1, t2)
+                if s1 > s2:
+                    t1_score += 1
+                else:
+                    t2_score += 1
+            winner = t1 if t1_score > t2_score else t2
+            next_round.append(winner)
+            st_round_results.append({
+                "Match": f"{t1.name} vs {t2.name}",
+                "Winner": winner.name,
+                "Score": f"{t1_score}-{t2_score}"
+            })
+        bracket = next_round
+        round_num += 1
+    
+    # Champion is last team remaining
+    champion = bracket[0]
+    self.history.append({"season": self.season, "champion": champion.name})
+    self.hall_of_fame.append(champion)
+    # Reset playoff list for next season
+    self.playoffs = []
+    return champion
+
+
+    # ------------------------------
     # SAVE / LOAD
     # ------------------------------
     def save_league(self, filename="league_save.pkl"):
@@ -203,3 +250,4 @@ league = League()
 league.create_teams_and_cards()
 league.assign_contributions()
 league.calculate_dominance()
+
