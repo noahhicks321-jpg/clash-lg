@@ -1,6 +1,7 @@
 # ==========================
 # File: clashlg.py
-# Backend engine for Clash Royale League
+# Updated Clash Royale League backend
+# Fully Pillow ≥10 compatible
 # ==========================
 
 import random
@@ -31,7 +32,7 @@ CARD_NAMES = [
     "Guards","Dark Prince","Bowler","Executioner","Fisherman","Zappies","Rascals","Mother Witch","Royal Champion",
     "Mortar","X-Bow","Tesla","Cannon","Bomb Tower","Inferno Tower","Goblin Hut","Barbarian Hut","Furnace","Tombstone",
     "Elixir Golem","Golem","Ice Golem","Skeletons","Graveyard","Clone","Freeze","Lightning"
-][:80]  # exactly 80 cards
+][:80]
 
 # --------------------------
 # CARD CLASS
@@ -86,10 +87,11 @@ class Card:
             except:
                 font = ImageFont.load_default()
             text = self.name[:2].upper()
-            # Pillow >=10 compatible
-            bbox = draw.textbbox((0,0),text,font=font)
+
+            # Pillow >=10 compatible method
+            bbox = draw.textbbox((0,0), text, font=font)
             w, h = bbox[2]-bbox[0], bbox[3]-bbox[1]
-            draw.text(((LOGO_SIZE[0]-w)/2,(LOGO_SIZE[1]-h)/2),text,font=font,fill="white")
+            draw.text(((LOGO_SIZE[0]-w)/2,(LOGO_SIZE[1]-h)/2), text, font=font, fill="white")
             img.save(str(self.logo_path))
 
 # --------------------------
