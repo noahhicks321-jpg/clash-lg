@@ -4,10 +4,12 @@ import pandas as pd
 # ------------------------------
 # HELPER FUNCTIONS
 # ------------------------------
-def generate_random_name():
-    prefixes = ['Crimson', 'Shadow', 'Thunder', 'Blaze', 'Frost', 'Iron', 'Golden', 'Storm', 'Night', 'Silver']
-    suffixes = ['Dragon', 'Knight', 'Wizard', 'Golem', 'Phoenix', 'Goblin', 'Ranger', 'Beast', 'Slayer', 'Giant']
-    return f"{random.choice(prefixes)} {random.choice(suffixes)}"
+def generate_unique_name(used_names, prefix_list, suffix_list):
+    while True:
+        name = f"{random.choice(prefix_list)} {random.choice(suffix_list)}"
+        if name not in used_names:
+            used_names.add(name)
+            return name
 
 def generate_team_color():
     colors = ['Red', 'Blue', 'Green', 'Yellow', 'Purple', 'Orange', 'Teal', 'Pink']
@@ -25,8 +27,10 @@ def generate_card_icon():
 # CARD CLASS
 # ------------------------------
 class Card:
-    def __init__(self):
-        self.name = generate_random_name()
+    def __init__(self, used_names):
+        prefixes = ['Crimson','Shadow','Thunder','Blaze','Frost','Iron','Golden','Storm','Night','Silver','Emerald','Obsidian']
+        suffixes = ['Dragon','Knight','Wizard','Golem','Phoenix','Goblin','Ranger','Beast','Slayer','Giant','Sentinel','Warden']
+        self.name = generate_unique_name(used_names, prefixes, suffixes)
         self.icon = generate_card_icon()
         self.stats = {
             'atk': random.randint(50,100),
@@ -34,7 +38,7 @@ class Card:
             'hit_speed': random.randint(50,100),
             'speed': random.randint(50,100)
         }
-        self.ovr_power = self.calculate_ovr()
+        self.ovr_power = round(self.calculate_ovr(),1)
         self.grade = None
         self.trend = '▲'
         self.elixir_base = round(random.uniform(1,10),1)
@@ -45,10 +49,10 @@ class Card:
         self.contracts = []
 
     def calculate_ovr(self):
-        return round(sum(self.stats.values()) / len(self.stats),1)
+        return sum(self.stats.values()) / len(self.stats)
 
     def update_elixir(self):
-        self.elixir_current = max(1, min(10, self.ovr_power/10 + random.uniform(-0.5,0.5)))
+        self.elixir_current = round(max(1, min(10, self.ovr_power/10 + random.uniform(-0.5,0.5))),1)
 
     def assign_grade(self):
         ovr = self.ovr_power
@@ -62,11 +66,14 @@ class Card:
 # TEAM CLASS
 # ------------------------------
 class Team:
+    used_names = set()
     def __init__(self):
-        self.name = generate_random_name()
+        prefixes = ['Crimson','Shadow','Thunder','Blaze','Frost','Iron','Golden','Storm','Night','Silver','Emerald','Obsidian']
+        suffixes = ['Titans','Legends','Guardians','Rangers','Warriors','Knights','Sentinels','Beasts','Slayers','Giants','Wardens','Phoenix']
+        self.name = generate_unique_name(Team.used_names, prefixes, suffixes)
         self.color = generate_team_color()
         self.logo = generate_team_logo()
-        self.cards = [Card(), Card()]
+        self.cards = [Card(Team.used_names), Card(Team.used_names)]
         self.wins = 0
         self.losses = 0
         self.played_games = []
@@ -92,14 +99,14 @@ class League:
 
         if total > 0:
             score1, score2 = 3, -2
-            if card1.clutch_play: score1 +=5
-            team1.wins +=1
-            team2.losses +=1
+            if card1.clutch_play: score1 += 5
+            team1.wins += 1
+            team2.losses += 1
         else:
-            score1, score2 = -2,3
-            if card2.clutch_play: score2 +=5
-            team2.wins +=1
-            team1.losses +=1
+            score1, score2 = -2, 3
+            if card2.clutch_play: score2 += 5
+            team2.wins += 1
+            team1.losses += 1
 
         if team1.wins >=5: score1 += team1.wins -4
         if team2.wins >=5: score2 += team2.wins -4
@@ -122,6 +129,9 @@ class League:
             for i in range(0,len(teams),2):
                 self.simulate_game(teams[i], teams[i+1])
 
+    # ------------------------------
+    # DATAFRAMES
+    # ------------------------------
     def standings_df(self):
         data = []
         for t in self.teams:
@@ -144,6 +154,10 @@ class League:
                     'Color': t.color,
                     'Card Icon': c.icon,
                     'Card': c.name,
+                    'Attack': c.stats['atk'],
+                    'Defense': c.stats['defense'],
+                    'Hit Speed': c.stats['hit_speed'],
+                    'Speed': c.stats['speed'],
                     'OVR': c.ovr_power,
                     'Grade': c.grade,
                     'Elixir': c.elixir_current,
@@ -152,6 +166,27 @@ class League:
                 })
         return pd.DataFrame(data)
 
+    def team_info_df(self):
+        data = []
+        for t in self.teams:
+            for c in t.cards:
+                data.append({
+                    'Team Logo': t.logo,
+                    'Team': t.name,
+                    'Color': t.color,
+                    'Card Icon': c.icon,
+                    'Card': c.name,
+                    'OVR': c.ovr_power,
+                    'Grade': c.grade,
+                    'Elixir': c.elixir_current,
+                    'Contribution': c.contribution_pct,
+                    'Clutch': c.clutch_play
+                })
+        return pd.DataFrame(data)
+
+    # ------------------------------
+    # AWARDS
+    # ------------------------------
     def assign_awards(self):
         all_cards = [c for t in self.teams for c in t.cards]
         top_contrib = max(all_cards, key=lambda x: x.contribution_pct)
