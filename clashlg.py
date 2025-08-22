@@ -4,23 +4,23 @@ import pandas as pd
 # ------------------------------
 # HELPER FUNCTIONS
 # ------------------------------
-def generate_unique_name(used_names, prefix_list, suffix_list):
+def generate_unique_name(used_names, prefixes, suffixes):
     while True:
-        name = f"{random.choice(prefix_list)} {random.choice(suffix_list)}"
+        name = f"{random.choice(prefixes)} {random.choice(suffixes)}"
         if name not in used_names:
             used_names.add(name)
             return name
 
 def generate_team_color():
-    colors = ['Red', 'Blue', 'Green', 'Yellow', 'Purple', 'Orange', 'Teal', 'Pink']
+    colors = ['Red','Blue','Green','Yellow','Purple','Orange','Teal','Pink','Brown','Cyan','Magenta']
     return random.choice(colors)
 
 def generate_team_logo():
-    emojis = ['🔥','⚡','🛡️','🗡️','🐉','🦅','🦄','🐺','🦁','👑']
-    return random.choice(emojis)
+    logos = ['🔥','⚡','🛡️','🗡️','🐉','🦅','🦄','🐺','🦁','👑','🧿','🌪️']
+    return random.choice(logos)
 
 def generate_card_icon():
-    icons = ['⚔️','🏹','🪄','🛡️','💥','🧿','🔥','🧱','🌪️','🦴']
+    icons = ['⚔️','🏹','🪄','🛡️','💥','🧿','🔥','🧱','🌪️','🦴','🩸','⚡']
     return random.choice(icons)
 
 # ------------------------------
@@ -38,18 +38,33 @@ class Card:
             'hit_speed': random.randint(50,100),
             'speed': random.randint(50,100)
         }
-        self.ovr_power = round(self.calculate_ovr(),1)
+        self.ovr_power = round(sum(self.stats.values())/len(self.stats),1)
         self.grade = None
         self.trend = '▲'
         self.elixir_base = round(random.uniform(1,10),1)
         self.elixir_current = self.elixir_base
-        self.contribution_pct = 0
-        self.clutch_play = False
+        self.contribution = 0
+        self.clutch_chance = 0
+        self.games_played = 0
         self.awards = []
         self.contracts = []
 
-    def calculate_ovr(self):
-        return sum(self.stats.values()) / len(self.stats)
+    def update_after_game(self, points, clutch_occurred):
+        self.contribution += points
+        self.games_played += 1
+        if clutch_occurred:
+            self.clutch_chance += 1
+        self.update_elixir()
+        self.assign_grade()
+        self.ovr_power = round(sum(self.stats.values())/len(self.stats),1)
+
+    def contribution_pct(self):
+        if self.games_played == 0: return 0
+        return round((self.contribution / (self.games_played * 10))*100,1)  # assuming 10 max pts per game
+
+    def clutch_pct(self):
+        if self.games_played == 0: return 0
+        return round((self.clutch_chance / self.games_played)*100,1)
 
     def update_elixir(self):
         self.elixir_current = round(max(1, min(10, self.ovr_power/10 + random.uniform(-0.5,0.5))),1)
@@ -94,28 +109,25 @@ class League:
         rng_factor = random.uniform(-0.25,0.25)
         total = stat_factor + rng_factor
 
-        card1.clutch_play = random.random() < 0.02
-        card2.clutch_play = random.random() < 0.02
+        card1_clutch = random.random() < 0.02
+        card2_clutch = random.random() < 0.02
 
         if total > 0:
             score1, score2 = 3, -2
-            if card1.clutch_play: score1 += 5
-            team1.wins += 1
-            team2.losses += 1
+            if card1_clutch: score1 +=5
+            team1.wins +=1
+            team2.losses +=1
         else:
-            score1, score2 = -2, 3
-            if card2.clutch_play: score2 += 5
-            team2.wins += 1
-            team1.losses += 1
+            score1, score2 = -2,3
+            if card2_clutch: score2 +=5
+            team2.wins +=1
+            team1.losses +=1
 
         if team1.wins >=5: score1 += team1.wins -4
         if team2.wins >=5: score2 += team2.wins -4
 
-        card1.contribution_pct += max(0, score1)
-        card2.contribution_pct += max(0, score2)
-
-        card1.update_elixir(); card2.update_elixir()
-        card1.assign_grade(); card2.assign_grade()
+        card1.update_after_game(score1, card1_clutch)
+        card2.update_after_game(score2, card2_clutch)
 
         team1.played_games.append((team2.name, score1, score2))
         team2.played_games.append((team1.name, score2, score1))
@@ -161,8 +173,8 @@ class League:
                     'OVR': c.ovr_power,
                     'Grade': c.grade,
                     'Elixir': c.elixir_current,
-                    'Contribution': c.contribution_pct,
-                    'Clutch': c.clutch_play
+                    'Contribution %': c.contribution_pct(),
+                    'Clutch %': c.clutch_pct()
                 })
         return pd.DataFrame(data)
 
@@ -179,8 +191,8 @@ class League:
                     'OVR': c.ovr_power,
                     'Grade': c.grade,
                     'Elixir': c.elixir_current,
-                    'Contribution': c.contribution_pct,
-                    'Clutch': c.clutch_play
+                    'Contribution %': c.contribution_pct(),
+                    'Clutch %': c.clutch_pct()
                 })
         return pd.DataFrame(data)
 
@@ -189,9 +201,9 @@ class League:
     # ------------------------------
     def assign_awards(self):
         all_cards = [c for t in self.teams for c in t.cards]
-        top_contrib = max(all_cards, key=lambda x: x.contribution_pct)
+        top_contrib = max(all_cards, key=lambda x: x.contribution_pct())
         top_score = max(all_cards, key=lambda x: x.ovr_power)
-        mvp = max(all_cards, key=lambda x: x.contribution_pct + x.ovr_power/10)
+        mvp = max(all_cards, key=lambda x: x.contribution_pct() + x.ovr_power/10)
         self.history['awards'].append({
             'MVP': mvp.name,
             'Top Contribution': top_contrib.name,
