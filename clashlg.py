@@ -1,6 +1,6 @@
 # ==========================
 # File: clashlg.py
-# Backend engine for Clash Royale League (Fixed logo generation)
+# Backend engine for Clash Royale League (Fixed logo generation for Pillow >=10)
 # ==========================
 
 import random
@@ -82,22 +82,18 @@ class Card:
                                                      random.randint(50,200),
                                                      random.randint(50,200)))
             draw = ImageDraw.Draw(img)
-            font_size = 12
             try:
-                font = ImageFont.truetype("arial.ttf", font_size)
+                font = ImageFont.truetype("arial.ttf", 12)
             except:
                 font = ImageFont.load_default()
             text = self.name[:2].upper()
 
-            # Compute text size properly for modern Pillow
-            if hasattr(draw, "textbbox"):
-                bbox = draw.textbbox((0,0), text, font=font)
-                w, h = bbox[2]-bbox[0], bbox[3]-bbox[1]
-            else:
-                w, h = draw.textsize(text, font=font)
+            # Pillow >=10 compatible: use textbbox
+            bbox = draw.textbbox((0, 0), text, font=font)
+            w, h = bbox[2] - bbox[0], bbox[3] - bbox[1]
 
             draw.text(((LOGO_SIZE[0]-w)/2, (LOGO_SIZE[1]-h)/2), text, font=font, fill="white")
-            img.save(self.logo_path)
+            img.save(str(self.logo_path))
 
 # --------------------------
 # LEAGUE CLASS
