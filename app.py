@@ -166,3 +166,124 @@ if tab == "🃏 Card Info":
             st.write(f"**Elixir Cost:** {row['Elixir']}")
             st.write(f"**Contribution %:** {row['Contribution %']}%")
             st.write(f"**Clutch %:** {row['Clutch %']}%")
+
+# ------------------------------
+# UTILITY FUNCTIONS
+# ------------------------------
+def update_team_streaks():
+    for t in league.teams:
+        wins, losses = 0, 0
+        streak = 0
+        last_result = None
+        for game in t.played_games:
+            result = game[1] > game[2]  # True if win
+            if last_result == result:
+                streak +=1
+            else:
+                streak = 1
+            last_result = result
+        t.streak = f"{'W' if last_result else 'L'}{streak}" if t.played_games else "N/A"
+
+def assign_team_contributions():
+    for t in league.teams:
+        total_ovr = sum([c.ovr_power for c in t.cards])
+        for c in t.cards:
+            c.contribution_pct_value = round(c.ovr_power / total_ovr * 100,1) if total_ovr>0 else 50
+
+def update_grades_and_elixir():
+    for t in league.teams:
+        for c in t.cards:
+            # Assign grade based on ovr_power
+            if c.ovr_power >=90: c.grade = 'A+'
+            elif c.ovr_power >=80: c.grade = 'A'
+            elif c.ovr_power >=70: c.grade = 'B'
+            elif c.ovr_power >=60: c.grade = 'C'
+            else: c.grade = 'D'
+            # Dynamic elixir based on OVR
+            c.elixir_current = round(max(1, min(10, c.ovr_power / 10)),1)
+
+# ------------------------------
+# UPDATE LEAGUE DATA
+# ------------------------------
+update_team_streaks()
+assign_team_contributions()
+update_grades_and_elixir()
+
+# ------------------------------
+# HOME TAB: Add Top 10 Cards
+# ------------------------------
+if tab == "🏠 Home":
+    st.header("Simulate Games & Seasons & Top 10 Cards")
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("Simulate Single Game"):
+            team1, team2 = random.sample(league.teams, 2)
+            score1, score2 = league.simulate_game(team1, team2)
+            st.success(f"{team1.logo} {team1.name} vs {team2.logo} {team2.name}")
+            st.write(f"{team1.cards[0].icon} {team1.cards[0].name} Score: {score1}")
+            st.write(f"{team2.cards[0].icon} {team2.cards[0].name} Score: {score2}")
+
+    with col2:
+        if st.button("Simulate Full Season"):
+            league.simulate_full_season()
+            league.assign_awards()
+            update_team_streaks()
+            assign_team_contributions()
+            update_grades_and_elixir()
+            st.success("🏆 Full Season Simulated & Awards Updated!")
+
+    st.subheader("Top 10 Cards by OVR Power")
+    top_cards = league.top_meta_cards()
+    data=[]
+    for c in top_cards:
+        data.append({
+            'Card Icon': c.icon,
+            'Card': c.name,
+            'Team': next(t.name for t in league.teams if c in t.cards),
+            'OVR': c.ovr_power,
+            'Grade': c.grade,
+            'Elixir': c.elixir_current,
+            'Contribution %': c.contribution_pct_value,
+            'Clutch %': c.clutch_pct()
+        })
+    df_top = pd.DataFrame(data)
+    st.dataframe(df_top.style.format({'OVR':'{:.1f}','Elixir':'{:.1f}'}).set_properties(**{'text-align':'center'}))
+
+# ------------------------------
+# STANDINGS TAB: Replace Color with Streak
+# ------------------------------
+elif tab == "📊 Standings":
+    st.header("Team Standings")
+    data=[]
+    for t in league.teams:
+        data.append({
+            'Logo': t.logo,
+            'Team': t.name,
+            'Wins': t.wins,
+            'Losses': t.losses,
+            'Streak': getattr(t,'streak','N/A')
+        })
+    df = pd.DataFrame(data).sort_values(by="Wins", ascending=False)
+    st.dataframe(df.style.set_properties(**{'text-align':'center'}))
+
+# ------------------------------
+# CARD INFO TAB: Table only
+# ------------------------------
+elif tab == "🃏 Card Info":
+    st.header("All Card Stats Table")
+    data=[]
+    for t in league.teams:
+        for c in t.cards:
+            data.append({
+                'Card Icon': c.icon,
+                'Card': c.name,
+                'Team Logo': t.logo,
+                'Team': t.name,
+                'OVR': c.ovr_power,
+                'Grade': c.grade,
+                'Elixir': c.elixir_current,
+                'Contribution %': c.contribution_pct_value,
+                'Clutch %': c.clutch_pct()
+            })
+    df_cards = pd.DataFrame(data)
+    st.dataframe(df_cards.style.format({'OVR':'{:.1f}','Elixir':'{:.1f}'}).set_properties(**{'text-align':'center'}))
