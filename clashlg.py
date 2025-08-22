@@ -1,6 +1,6 @@
 # ==========================
 # File: clashlg.py
-# Backend engine for Clash Royale League (Pillow >=10 compatible)
+# Backend engine for Clash Royale League
 # ==========================
 
 import random
@@ -77,15 +77,18 @@ class Card:
         if not LOGO_FOLDER.exists():
             LOGO_FOLDER.mkdir()
         if not self.logo_path.exists():
-            img = Image.new("RGB",LOGO_SIZE,color=(random.randint(50,200),random.randint(50,200),random.randint(50,200)))
+            img = Image.new("RGB",LOGO_SIZE,color=(random.randint(50,200),
+                                                   random.randint(50,200),
+                                                   random.randint(50,200)))
             draw = ImageDraw.Draw(img)
             try:
                 font = ImageFont.truetype("arial.ttf",12)
             except:
                 font = ImageFont.load_default()
             text = self.name[:2].upper()
+            # Pillow >=10 compatible
             bbox = draw.textbbox((0,0),text,font=font)
-            w,h = bbox[2]-bbox[0], bbox[3]-bbox[1]
+            w, h = bbox[2]-bbox[0], bbox[3]-bbox[1]
             draw.text(((LOGO_SIZE[0]-w)/2,(LOGO_SIZE[1]-h)/2),text,font=font,fill="white")
             img.save(str(self.logo_path))
 
@@ -113,8 +116,7 @@ class ClashLeague:
     def simulate_game(self):
         c1,c2 = random.sample(self.cards,2)
         ovr1,ovr2 = c1.overall_rating(),c2.overall_rating()
-        if ovr1==ovr2: winner=random.choice([c1,c2])
-        else: winner = c1 if ovr1>ovr2 else c2
+        winner = c1 if ovr1>=ovr2 else c2
         loser = c2 if winner==c1 else c1
         winner.record["wins"]+=1
         loser.record["losses"]+=1
@@ -124,7 +126,8 @@ class ClashLeague:
 
     def simulate_games(self,n=1):
         results=[]
-        for _ in range(n): results.append(self.simulate_game())
+        for _ in range(n):
+            results.append(self.simulate_game())
         return results
 
     def standings(self):
