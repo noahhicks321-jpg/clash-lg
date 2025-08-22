@@ -1,12 +1,12 @@
 # ==========================
 # File: app.py
-# Streamlit UI for Clash Royale League
+# Streamlit UI for Clash Royale League (with Next Season Rollover)
 # ==========================
 
 import streamlit as st
 import pandas as pd
 from PIL import Image
-from clashlg import ClashLeague, Card, LOGO_FOLDER, MAX_BALANCE_CHANGE
+from clashlg import ClashLeague, Card, LOGO_FOLDER, MAX_BALANCE_CHANGE, SEASON_GAMES
 
 # --------------------------
 # INIT LEAGUE
@@ -38,6 +38,22 @@ if page=="Home":
 
         if st.button("Save Game"): league.save()
         if st.button("Load Game"): league.load()
+
+        st.subheader("Season Management")
+        if st.button("Next Season / Rollover"):
+            # Save previous season placements
+            df = league.standings()
+            for c in league.cards:
+                placement = df[df["Name"]==c.name].index[0]+1
+                c.placements.append(placement)
+            # Reset season stats
+            for c in league.cards:
+                c.record = {"wins":0, "losses":0}
+                c.streak = 0
+            league.calendar = league.generate_calendar()
+            league.season += 1
+            league.balance_changes_done = False
+            st.success(f"Season rolled over to Season {league.season}!")
 
     with col2:
         st.subheader("🔥 Top 10 Cards")
