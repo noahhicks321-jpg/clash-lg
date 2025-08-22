@@ -130,3 +130,39 @@ elif tab == "📜 Season Summary":
         })
     df_top = pd.DataFrame(data)
     st.dataframe(df_top.style.format({'OVR':'{:.1f}','Elixir':'{:.1f}'}).set_properties(**{'text-align':'center'}))
+
+# ------------------------------
+# ENHANCED STYLING AND DYNAMIC ELIXIR
+# ------------------------------
+def grade_color(grade):
+    if grade in ['A+', 'A']: return 'green'
+    elif grade == 'B': return 'blue'
+    elif grade == 'C': return 'orange'
+    else: return 'red'
+
+def trend_arrow(trend):
+    if trend == '▲': return '🟢▲'
+    elif trend == '▼': return '🔴▼'
+    return trend
+
+def format_cards_table(df):
+    df_formatted = df.copy()
+    df_formatted['Grade'] = df_formatted.apply(lambda x: f"{trend_arrow(getattr(x,'trend','▲'))} <span style='color:{grade_color(x['Grade'])}'>{x['Grade']}</span>", axis=1)
+    df_formatted['Card Display'] = df_formatted['Card Icon'] + ' ' + df_formatted['Card']
+    df_formatted['Team Display'] = df_formatted['Team Logo'] + ' ' + df_formatted['Team']
+    df_formatted['Elixir'] = df_formatted['OVR'].apply(lambda ovr: round(max(1, min(10, ovr/10)),1))  # Dynamic elixir based on OVR
+    return df_formatted[['Team Display','Card Display','OVR','Grade','Elixir','Contribution %','Clutch %']]
+
+# Example Usage in CARD INFO tab:
+if tab == "🃏 Card Info":
+    st.header("All Card Stats - Enhanced Display")
+    df = league.cards_df().sort_values(by="OVR", ascending=False)
+    df_formatted = format_cards_table(df)
+    st.write("**Click to view card details:**")
+    for idx, row in df_formatted.iterrows():
+        with st.expander(f"{row['Card Display']} ({row['Grade']})"):
+            st.markdown(f"**Team:** {row['Team Display']}")
+            st.write(f"**OVR Power:** {row['OVR']}")
+            st.write(f"**Elixir Cost:** {row['Elixir']}")
+            st.write(f"**Contribution %:** {row['Contribution %']}%")
+            st.write(f"**Clutch %:** {row['Clutch %']}%")
