@@ -21,11 +21,12 @@ tabs = ["🏠 Home", "📊 Standings", "🃏 Card Info", "🏟️ Team Info", "�
 tab = st.sidebar.radio("Navigation", tabs)
 
 # ------------------------------
-# HOME: SIMULATION
+# HOME TAB: SIMULATION
 # ------------------------------
 if tab == "🏠 Home":
     st.header("Simulate Games & Seasons")
     col1, col2 = st.columns(2)
+    
     with col1:
         if st.button("Simulate Single Game"):
             team1, team2 = random.sample(league.teams, 2)
@@ -41,7 +42,7 @@ if tab == "🏠 Home":
             st.success("🏆 Full Season Simulated & Awards Assigned!")
 
 # ------------------------------
-# STANDINGS
+# STANDINGS TAB
 # ------------------------------
 elif tab == "📊 Standings":
     st.header("Team Standings")
@@ -49,23 +50,38 @@ elif tab == "📊 Standings":
     st.dataframe(df.style.set_properties(**{'text-align':'center'}))
 
 # ------------------------------
-# CARD INFO
+# CARD INFO TAB
 # ------------------------------
 elif tab == "🃏 Card Info":
     st.header("All Card Stats")
     df = league.cards_df().sort_values(by="OVR", ascending=False)
-    st.dataframe(df.style.format({'OVR': '{:.1f}', 'Elixir': '{:.1f}'}).set_properties(**{'text-align':'center'}))
-
+    
+    for i, row in df.iterrows():
+        with st.expander(f"{row['Card Icon']} {row['Card']} ({row['Grade']})"):
+            st.markdown(f"**Team:** {row['Team Logo']} {row['Team']} ({row['Color']})")
+            st.write(f"**Attack:** {row['Attack']}")
+            st.write(f"**Defense:** {row['Defense']}")
+            st.write(f"**Hit Speed:** {row['Hit Speed']}")
+            st.write(f"**Speed:** {row['Speed']}")
+            st.write(f"**OVR Power:** {row['OVR']}")
+            st.write(f"**Elixir Cost:** {row['Elixir']}")
+            st.write(f"**Contribution %:** {row['Contribution %']}%")
+            st.write(f"**Clutch %:** {row['Clutch %']}%")
+            st.write(f"**Contracts:** {row.get('Contracts', 'N/A')}")
+    
 # ------------------------------
-# TEAM INFO
+# TEAM INFO TAB
 # ------------------------------
 elif tab == "🏟️ Team Info":
     st.header("Team Profiles & Card Details")
     df = league.team_info_df()
-    st.dataframe(df.style.format({'OVR': '{:.1f}', 'Elixir': '{:.1f}'}).set_properties(**{'text-align':'center'}))
+    for team_name in df['Team'].unique():
+        tdf = df[df['Team']==team_name]
+        st.subheader(f"{tdf.iloc[0]['Team Logo']} {team_name} ({tdf.iloc[0]['Color']})")
+        st.table(tdf[['Card Icon','Card','OVR','Grade','Elixir','Contribution %','Clutch %']].style.format({'OVR':'{:.1f}','Elixir':'{:.1f}'}))
 
 # ------------------------------
-# TOP META CARDS
+# TOP META CARDS TAB
 # ------------------------------
 elif tab == "🔥 Top Meta Cards":
     st.header("Top 10 Cards by OVR Power")
@@ -78,18 +94,19 @@ elif tab == "🔥 Top Meta Cards":
             'OVR': c.ovr_power,
             'Grade': c.grade,
             'Elixir': c.elixir_current,
-            'Contribution': c.contribution_pct,
-            'Clutch': c.clutch_play
+            'Contribution %': c.contribution_pct(),
+            'Clutch %': c.clutch_pct()
         })
     df_top = pd.DataFrame(data)
     st.dataframe(df_top.style.format({'OVR':'{:.1f}','Elixir':'{:.1f}'}).set_properties(**{'text-align':'center'}))
 
 # ------------------------------
-# SEASON SUMMARY
+# SEASON SUMMARY TAB
 # ------------------------------
 elif tab == "📜 Season Summary":
     st.header("Season Summary & Awards")
-    st.subheader("Standings")
+    
+    st.subheader("Team Standings")
     st.dataframe(league.standings_df().sort_values(by="Wins", ascending=False))
     
     st.subheader("Top Awards")
@@ -97,3 +114,19 @@ elif tab == "📜 Season Summary":
         st.json(league.history['awards'][-1])
     else:
         st.write("No awards yet. Simulate a season to assign awards.")
+    
+    st.subheader("Top Meta Cards")
+    top_cards = league.top_meta_cards()
+    data = []
+    for c in top_cards:
+        data.append({
+            'Card Icon': c.icon,
+            'Card': c.name,
+            'OVR': c.ovr_power,
+            'Grade': c.grade,
+            'Elixir': c.elixir_current,
+            'Contribution %': c.contribution_pct(),
+            'Clutch %': c.clutch_pct()
+        })
+    df_top = pd.DataFrame(data)
+    st.dataframe(df_top.style.format({'OVR':'{:.1f}','Elixir':'{:.1f}'}).set_properties(**{'text-align':'center'}))
