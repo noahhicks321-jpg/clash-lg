@@ -1,6 +1,6 @@
 # ==========================
 # File: clashlg.py
-# Updated Clash Royale League backend
+# Clash Royale League backend
 # Fully Pillow ≥10 compatible
 # ==========================
 
@@ -87,7 +87,6 @@ class Card:
             except:
                 font = ImageFont.load_default()
             text = self.name[:2].upper()
-
             # Pillow >=10 compatible method
             bbox = draw.textbbox((0,0), text, font=font)
             w, h = bbox[2]-bbox[0], bbox[3]-bbox[1]
