@@ -1,125 +1,110 @@
-# -------------------- CORE GAME DATA --------------------
+import random
+import json
+import time
 
-# Card rarities & value ranges
-RARITY_VALUES = {
-    "Common": (0.58, 8.76),
-    "Rare": (8.77, 28.95),
-    "Epic": (28.96, 89.54),
-    "Legendary": (89.55, 487.88),
-    "Champion": (487.89, 6788.43),
-}
+# -----------------------------
+# Core Game State
+# -----------------------------
+class GameState:
+    def __init__(self):
+        self.money = 0.0
+        self.money_per_click = 1.0
+        self.money_per_second = 0.0
 
-# Chest definitions
-CHESTS = {
-    "Wooden Chest": {
-        "price": 15,
-        "arena_req": 1,
-        "chances": {"Common": 0.85, "Rare": 0.15}
-    },
-    "Silver Chest": {
-        "price": 75,
-        "arena_req": 2,
-        "chances": {"Common": 0.75, "Rare": 0.15, "Epic": 0.10}
-    },
-    "Golden Chest": {
-        "price": 150,
-        "arena_req": 3,
-        "chances": {"Common": 0.70, "Rare": 0.17, "Epic": 0.11, "Legendary": 0.02}
-    },
-    "Magical Chest": {
-        "price": 750,
-        "arena_req": 5,
-        "chances": {"Common": 0.62, "Rare": 0.19, "Epic": 0.13, "Legendary": 0.04, "Champion": 0.02}
-    },
-    "Kings Chest": {
-        "price": 2700,
-        "arena_req": 6,
-        "chances": {"Common": 0.51, "Rare": 0.22, "Epic": 0.15, "Legendary": 0.08, "Champion": 0.04}
-    },
-    "Legendary Chest": {
-        "price": 8500,
-        "arena_req": 8,
-        "chances": {"Common": 0.40, "Rare": 0.27, "Epic": 0.18, "Legendary": 0.09, "Champion": 0.06}
-    },
-    "Champion Chest": {
-        "price": 15000,
-        "arena_req": 9,
-        "chances": {"Common": 0.30, "Rare": 0.31, "Epic": 0.20, "Legendary": 0.11, "Champion": 0.08}
-    },
-    "Universal Chest": {
-        "price": 35000,
-        "arena_req": 12,
-        "chances": {"Common": 0.20, "Rare": 0.33, "Epic": 0.24, "Legendary": 0.13, "Champion": 0.10}
-    },
-    "Guaranteed Legendary": {
-        "price": None,  # one-time arena reward
-        "arena_req": 15,
-        "guaranteed": "Legendary"
-    },
-    "Guaranteed Champion": {
-        "price": None,
-        "arena_req": 20,
-        "guaranteed": "Champion"
-    }
-}
+        # Stats
+        self.total_money_made = 0.0
+        self.total_clicks = 0
+        self.total_chests_opened = 0
+        self.total_cards_collected = 0
+        self.total_cards_sold = 0
+        self.total_money_clicked = 0.0
 
-# Upgrades (alternate between auto-clickers and MPC)
+        # Progression
+        self.arena_level = 1
+        self.owned_cards = []
+        self.upgrades_purchased = []
+
+        # Passive income tracking
+        self.last_tick = time.time()
+
+    def click(self):
+        """Handle user clicking on chest space"""
+        self.money += self.money_per_click
+        self.total_money_made += self.money_per_click
+        self.total_money_clicked += self.money_per_click
+        self.total_clicks += 1
+
+    def apply_passive_income(self):
+        """Handle money per second"""
+        now = time.time()
+        elapsed = now - self.last_tick
+        self.last_tick = now
+        earned = elapsed * self.money_per_second
+        self.money += earned
+        self.total_money_made += earned
+
+    def save(self, filename="save.json"):
+        with open(filename, "w") as f:
+            json.dump(self.__dict__, f, default=str, indent=2)
+
+    def load(self, filename="save.json"):
+        try:
+            with open(filename, "r") as f:
+                data = json.load(f)
+                self.__dict__.update(data)
+        except FileNotFoundError:
+            print("No save file found, starting fresh.")
+
+# -----------------------------
+# Upgrade System
+# -----------------------------
+class Upgrade:
+    def __init__(self, name, cost, effect_type, effect_value):
+        self.name = name
+        self.cost = cost
+        self.effect_type = effect_type  # "click" or "passive"
+        self.effect_value = effect_value
+
+    def apply(self, game: GameState):
+        if self.effect_type == "click":
+            game.money_per_click += self.effect_value
+        elif self.effect_type == "passive":
+            game.money_per_second += self.effect_value
+
+# Predefined upgrade path
 UPGRADES = [
-    {"name": "Auto Clicker I", "type": "auto", "value": 0.5, "cost": 20},
-    {"name": "MPC I", "type": "mpc", "value": 2, "cost": 1000},
-    {"name": "Auto Clicker II", "type": "auto", "value": 1.5, "cost": 500},
-    {"name": "MPC II", "type": "mpc", "value": 6, "cost": 5000},
-    {"name": "Auto Clicker III", "type": "auto", "value": 5, "cost": 2500},
-    {"name": "MPC III", "type": "mpc", "value": 9.5, "cost": 12500},
-    {"name": "Gold Clicker I", "type": "auto", "value": 7, "cost": 8000},
-    {"name": "MPC IV", "type": "mpc", "value": 15, "cost": 25000},
-    {"name": "Gold Clicker II", "type": "auto", "value": 9.5, "cost": 20000},
-    {"name": "MPC V", "type": "mpc", "value": 25, "cost": 65000},
-    {"name": "Master Clicker I", "type": "auto", "value": 12, "cost": 50000},
-    {"name": "MPC Master", "type": "mpc", "value": 50, "cost": 120000},
-    {"name": "Master Clicker II", "type": "auto", "value": 15, "cost": 150000},
+    Upgrade("Auto Clicker I", 20, "passive", 0.5),
+    Upgrade("MPC I", 1000, "click", 2),
+    Upgrade("Auto Clicker II", 500, "passive", 1.5),
+    Upgrade("MPC II", 5000, "click", 6),
+    Upgrade("Auto Clicker III", 2500, "passive", 5),
+    Upgrade("MPC III", 12500, "click", 9.5),
+    Upgrade("Gold Clicker I", 8000, "passive", 7),
+    Upgrade("MPC IV", 25000, "click", 15),
+    Upgrade("Gold Clicker II", 20000, "passive", 9.5),
+    Upgrade("MPC V", 65000, "click", 25),
+    Upgrade("Master Clicker I", 50000, "passive", 12),
+    Upgrade("MPC Master", 120000, "click", 50),
+    Upgrade("Master Clicker II", 150000, "passive", 15),
 ]
 
-# Arena progression (requirements + rewards)
-ARENAS = [
-    {"arena": 1, "req": 0, "reward": 0},
-    {"arena": 2, "req": 1000, "reward": 500},
-    {"arena": 3, "req": 7000, "reward": 1000},
-    {"arena": 4, "req": 15000, "reward": 2000},
-    {"arena": 5, "req": 30000, "reward": 4000},
-    {"arena": 6, "req": 50000, "reward": 7000},
-    {"arena": 7, "req": 75000, "reward": 10000},
-    {"arena": 8, "req": 110000, "reward": 13000},
-    {"arena": 9, "req": 150000, "reward": 20000},
-    {"arena": 10, "req": 200000, "reward": 50000},
-    {"arena": 11, "req": 275000, "reward": 70000},
-    {"arena": 12, "req": 400000, "reward": 90000},
-    {"arena": 13, "req": 550000, "reward": 110000},
-    {"arena": 14, "req": 750000, "reward": 125000},
-    {"arena": 15, "req": 1000000, "reward": 180000},
-    {"arena": 16, "req": 1300000, "reward": 225000},
-    {"arena": 17, "req": 1700000, "reward": 260000},
-    {"arena": 18, "req": 2200000, "reward": 290000},
-    {"arena": 19, "req": 2800000, "reward": 350000},
-    {"arena": 20, "req": 3500000, "reward": 500000},
-    {"arena": 21, "req": 4300000, "reward": 700000},
-    {"arena": 22, "req": 5200000, "reward": 850000},
-    {"arena": 23, "req": 6200000, "reward": 900000},
-    {"arena": 24, "req": 7300000, "reward": 1000000},
-    {"arena": 25, "req": 10000000, "reward": 3000000},
-]
+# -----------------------------
+# Example of Usage
+# -----------------------------
+if __name__ == "__main__":
+    game = GameState()
 
-# -------------------- BASE STATE --------------------
-game_state = {
-    "money": 0,
-    "mpc": 1,  # money per click
-    "mps": 0,  # money per second
-    "upgrades_owned": [],
-    "cards_owned": {},  # {"Card Name": {"rarity": "Epic", "value": 120.5, "count": 1}}
-    "arena": 1,
-    "total_money_made": 0,
-    "total_clicked": 0,
-    "total_chests_opened": 0,
-    "total_cards_collected": 0,
-    "total_cards_sold": 0,
-}
+    # Simulate a few clicks
+    for _ in range(10):
+        game.click()
+
+    # Buy first upgrade if possible
+    if game.money >= UPGRADES[0].cost:
+        game.money -= UPGRADES[0].cost
+        UPGRADES[0].apply(game)
+        game.upgrades_purchased.append(UPGRADES[0].name)
+
+    print(f"Money: {game.money:.2f}")
+    print(f"MPC: {game.money_per_click}")
+    print(f"MPS: {game.money_per_second}")
+    print(f"Upgrades bought: {game.upgrades_purchased}")
