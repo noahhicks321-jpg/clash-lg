@@ -1,155 +1,157 @@
 import streamlit as st
 import pandas as pd
 import random
+import time
+import json
 from datetime import datetime, timedelta
-from collections import defaultdict
-from streamlit_autorefresh import st_autorefresh
+import os
 
-# -------------------- AUTOREFRESH --------------------
-st_autorefresh(interval=1000, key="refresh")
+# -------------------- INITIAL DATA --------------------
+CARD_POOL = [
+    {"Name": "Knight", "AtkDmg": 50, "AtkSpd": 1.2, "Range": 1, "Rarity": "Common"},
+    {"Name": "Archer", "AtkDmg": 35, "AtkSpd": 1.5, "Range": 5, "Rarity": "Common"},
+    {"Name": "Baby Dragon", "AtkDmg": 70, "AtkSpd": 1.0, "Range": 3, "Rarity": "Rare"},
+    {"Name": "Wizard", "AtkDmg": 90, "AtkSpd": 1.3, "Range": 4, "Rarity": "Epic"},
+    {"Name": "P.E.K.K.A", "AtkDmg": 300, "AtkSpd": 0.8, "Range": 1, "Rarity": "Epic"},
+    {"Name": "Giant", "AtkDmg": 200, "AtkSpd": 0.9, "Range": 1, "Rarity": "Rare"},
+    {"Name": "Mini P.E.K.K.A", "AtkDmg": 150, "AtkSpd": 1.0, "Range": 1, "Rarity": "Rare"},
+    {"Name": "Hog Rider", "AtkDmg": 180, "AtkSpd": 1.2, "Range": 1, "Rarity": "Epic"},
+    {"Name": "Valkyrie", "AtkDmg": 130, "AtkSpd": 1.0, "Range": 1, "Rarity": "Rare"},
+    {"Name": "Musketeer", "AtkDmg": 120, "AtkSpd": 1.3, "Range": 4, "Rarity": "Rare"}
+]
 
-# -------------------- SESSION STATE INIT --------------------
-if 'coins' not in st.session_state: st.session_state.coins = 0
-if 'xp' not in st.session_state: st.session_state.xp = 0
-if 'level' not in st.session_state: st.session_state.level = 1
-if 'inventory' not in st.session_state: st.session_state.inventory = defaultdict(int)
-if 'chests' not in st.session_state: st.session_state.chests = []
-if 'last_passive' not in st.session_state: st.session_state.last_passive = datetime.now()
-if 'cards' not in st.session_state:
-    st.session_state.cards = [
-        {"name":"Knight","atk":50,"hp":200,"rarity":"Common"},
-        {"name":"Archer","atk":40,"hp":100,"rarity":"Common"},
-        {"name":"Baby Dragon","atk":60,"hp":150,"rarity":"Rare"},
-        {"name":"Wizard","atk":80,"hp":120,"rarity":"Rare"},
-        {"name":"P.E.K.K.A","atk":150,"hp":500,"rarity":"Epic"},
-        {"name":"Giant","atk":100,"hp":400,"rarity":"Rare"},
-        {"name":"Mini P.E.K.K.A","atk":120,"hp":250,"rarity":"Rare"},
-        {"name":"Hog Rider","atk":110,"hp":220,"rarity":"Epic"},
-        {"name":"Valkyrie","atk":70,"hp":300,"rarity":"Rare"},
-        {"name":"Musketeer","atk":90,"hp":180,"rarity":"Rare"},
-        {"name":"Bomber","atk":60,"hp":100,"rarity":"Common"},
-        {"name":"Skeleton Army","atk":10,"hp":30,"rarity":"Common"},
-        {"name":"Prince","atk":130,"hp":200,"rarity":"Epic"},
-        {"name":"Dark Prince","atk":120,"hp":250,"rarity":"Epic"},
-        {"name":"Spear Goblins","atk":30,"hp":60,"rarity":"Common"},
-        {"name":"Goblin Barrel","atk":80,"hp":50,"rarity":"Epic"},
-        {"name":"Witch","atk":50,"hp":150,"rarity":"Epic"},
-        {"name":"Ice Wizard","atk":40,"hp":120,"rarity":"Epic"},
-        {"name":"Electro Wizard","atk":50,"hp":130,"rarity":"Legendary"},
-        {"name":"Golden Knight","atk":140,"hp":350,"rarity":"Legendary"},
-        {"name":"Mega Minion","atk":100,"hp":150,"rarity":"Rare"},
-        {"name":"Inferno Dragon","atk":200,"hp":220,"rarity":"Epic"},
-        {"name":"Skeleton","atk":20,"hp":30,"rarity":"Common"},
-        {"name":"Fire Spirits","atk":80,"hp":50,"rarity":"Common"},
-        {"name":"Cannon","atk":50,"hp":300,"rarity":"Common"},
-        {"name":"Tesla","atk":60,"hp":320,"rarity":"Rare"},
-        {"name":"Bomb Tower","atk":70,"hp":400,"rarity":"Rare"},
-        {"name":"Goblin Gang","atk":30,"hp":70,"rarity":"Common"},
-        {"name":"Minions","atk":60,"hp":80,"rarity":"Common"},
-        {"name":"Minion Horde","atk":40,"hp":30,"rarity":"Rare"}
-    ]
+UPGRADES = {
+    "click": 1,
+    "passive": 0,
+    "multiplier": 1.0
+}
+
+ACHIEVEMENTS = []
+PLAYER_STATS = {
+    "gold": 0,
+    "clicks": 0,
+    "cards_collected": [],
+    "chests_opened": 0
+}
+CHESTS = []
+ARENAS = ["Training Camp", "Goblin Arena", "Bone Pit", "Barbarian Bowl"]
+CURRENT_ARENA = 0
+
+SAVE_FILE = "clash_clicker_save.json"
 
 # -------------------- UTILITY FUNCTIONS --------------------
-def gain_passive():
-    now = datetime.now()
-    elapsed = (now - st.session_state.last_passive).total_seconds()
-    if elapsed >= 1:
-        st.session_state.coins += int(elapsed * st.session_state.level)
-        st.session_state.xp += int(elapsed * 2)
-        st.session_state.last_passive = now
-        check_levelup()
 
-def check_levelup():
-    threshold = st.session_state.level * 100
-    if st.session_state.xp >= threshold:
-        st.session_state.level += 1
-        st.session_state.xp -= threshold
-        st.success(f"Level Up! Now Level {st.session_state.level}")
+def save_game():
+    data = {
+        "player_stats": PLAYER_STATS,
+        "upgrades": UPGRADES,
+        "achievements": ACHIEVEMENTS,
+        "chests": CHESTS,
+        "current_arena": CURRENT_ARENA
+    }
+    with open(SAVE_FILE, "w") as f:
+        json.dump(data, f)
 
-def add_chest(name, timer_seconds):
-    st.session_state.chests.append({
-        "name": name,
-        "ready_time": datetime.now() + timedelta(seconds=timer_seconds),
-        "opened": False
-    })
 
-def open_chest(chest):
-    coins = random.randint(50,200) * st.session_state.level
-    card = random.choice(st.session_state.cards)
-    st.session_state.inventory[card['name']] += 1
-    chest['opened'] = True
-    st.session_state.coins += coins
-    st.success(f"Opened {chest['name']}! +{coins} coins, gained {card['name']} card")
+def load_game():
+    global PLAYER_STATS, UPGRADES, ACHIEVEMENTS, CHESTS, CURRENT_ARENA
+    if os.path.exists(SAVE_FILE):
+        with open(SAVE_FILE, "r") as f:
+            data = json.load(f)
+            PLAYER_STATS = data.get("player_stats", PLAYER_STATS)
+            UPGRADES = data.get("upgrades", UPGRADES)
+            ACHIEVEMENTS = data.get("achievements", ACHIEVEMENTS)
+            CHESTS = data.get("chests", CHESTS)
+            CURRENT_ARENA = data.get("current_arena", CURRENT_ARENA)
 
-def ready_chests():
-    return [c for c in st.session_state.chests if not c['opened'] and datetime.now() >= c['ready_time']]
 
-def click_for_coins():
-    gain = 10 * st.session_state.level
-    st.session_state.coins += gain
-    st.session_state.xp += 5
-    st.success(f"Gained {gain} coins and 5 XP!")
-    check_levelup()
+def gain_gold(amount):
+    PLAYER_STATS["gold"] += int(amount * UPGRADES["multiplier"])
 
-def daily_reward():
-    coins_reward = random.randint(100,500) * st.session_state.level
-    st.session_state.coins += coins_reward
-    st.success(f"Daily Reward! +{coins_reward} coins")
 
-# -------------------- PASSIVE INCOME --------------------
-gain_passive()
+def collect_card():
+    card = random.choice(CARD_POOL)
+    PLAYER_STATS["cards_collected"].append(card)
+    return card
 
-# -------------------- SIDEBAR --------------------
-st.sidebar.header("Player Stats")
-st.sidebar.write(f"Level: {st.session_state.level}")
-st.sidebar.write(f"XP: {st.session_state.xp}/{st.session_state.level*100}")
-st.sidebar.write(f"Coins: {st.session_state.coins}")
 
-st.sidebar.header("Inventory")
-for card, count in st.session_state.inventory.items():
-    st.sidebar.write(f"{card}: {count}")
+def open_chest():
+    chest_content = []
+    num_cards = random.randint(1, 3)
+    for _ in range(num_cards):
+        chest_content.append(collect_card())
+    gold_reward = random.randint(50, 200)
+    gain_gold(gold_reward)
+    PLAYER_STATS["chests_opened"] += 1
+    CHESTS.append({"cards": chest_content, "gold": gold_reward, "time": str(datetime.now())})
+    return chest_content, gold_reward
 
-st.sidebar.header("Add Chests")
-if st.sidebar.button("Silver Chest"):
-    add_chest("Silver Chest", 10)
-if st.sidebar.button("Gold Chest"):
-    add_chest("Gold Chest", 20)
-if st.sidebar.button("Epic Chest"):
-    add_chest("Epic Chest", 40)
-if st.sidebar.button("Legendary Chest"):
-    add_chest("Legendary Chest", 60)
+# -------------------- STREAMLIT UI --------------------
 
-st.sidebar.header("Events")
-if st.sidebar.button("Daily Reward"):
-    daily_reward()
+st.set_page_config(page_title="Clash Clicker", layout="wide")
+load_game()
 
-# -------------------- MAIN AREA --------------------
-st.title("Clash Royale Case Clicker 🏰")
+st.title("⚔️ Clash Clicker")
 
-st.header("Cards")
-st.dataframe(pd.DataFrame(st.session_state.cards))
+menu = st.sidebar.selectbox("Menu", ["Main", "Cards", "Chests", "Upgrades", "Achievements", "Stats"])
 
-st.header("Clicker")
-if st.button("Click for Coins"):
-    click_for_coins()
+if menu == "Main":
+    st.header("🏰 Main Arena")
+    st.subheader(f"Current Arena: {ARENAS[CURRENT_ARENA]}")
 
-st.header("Chests Ready")
-for chest in ready_chests():
-    if st.button(f"Open {chest['name']}"):
-        open_chest(chest)
+    if st.button("Click for Gold!"):
+        gain_gold(1 + UPGRADES["click"])
+        PLAYER_STATS["clicks"] += 1
+        st.success(f"You gained {int(1 + UPGRADES['click']*UPGRADES['multiplier'])} gold!")
 
-st.header("Stats Charts")
-stats_df = pd.DataFrame({
-    "Metric":["Coins","XP","Level"],
-    "Value":[st.session_state.coins, st.session_state.xp, st.session_state.level]
-})
-st.bar_chart(stats_df.set_index("Metric"))
+    if st.button("Open a Chest"):
+        cards, gold = open_chest()
+        st.success(f"Chest opened! Gold: {gold}, Cards: {[c['Name'] for c in cards]}")
 
-inventory_df = pd.DataFrame({
-    "Card": list(st.session_state.inventory.keys()),
-    "Count": list(st.session_state.inventory.values())
-})
-if not inventory_df.empty:
-    st.bar_chart(inventory_df.set_index("Card"))
+elif menu == "Cards":
+    st.header("🃏 Cards Collection")
+    df_cards = pd.DataFrame(PLAYER_STATS["cards_collected"])
+    if not df_cards.empty:
+        st.dataframe(df_cards)
+    else:
+        st.info("No cards collected yet.")
 
-st.write("Progress auto-refreshes every second! All coins, XP, and chest timers update in real-time.")
+elif menu == "Chests":
+    st.header("🎁 Chest History")
+    if CHESTS:
+        for idx, chest in enumerate(CHESTS):
+            st.write(f"Chest {idx+1}: Gold {chest['gold']}, Cards {[c['Name'] for c in chest['cards']]}, Time {chest['time']}")
+    else:
+        st.info("No chests opened yet.")
+
+elif menu == "Upgrades":
+    st.header("⚡ Upgrades")
+    click_upgrade = st.number_input("Click Upgrade", min_value=UPGRADES['click'], step=1)
+    passive_upgrade = st.number_input("Passive Upgrade", min_value=UPGRADES['passive'], step=1)
+    multiplier_upgrade = st.number_input("Multiplier", min_value=float(UPGRADES['multiplier']), step=0.1, format="%.1f")
+
+    if st.button("Apply Upgrades"):
+        UPGRADES['click'] = click_upgrade
+        UPGRADES['passive'] = passive_upgrade
+        UPGRADES['multiplier'] = multiplier_upgrade
+        st.success("Upgrades applied!")
+
+elif menu == "Achievements":
+    st.header("🏆 Achievements")
+    if ACHIEVEMENTS:
+        for a in ACHIEVEMENTS:
+            st.write(f"{a}")
+    else:
+        st.info("No achievements unlocked yet.")
+
+elif menu == "Stats":
+    st.header("📊 Player Stats")
+    st.write(f"Gold: {PLAYER_STATS['gold']}")
+    st.write(f"Clicks: {PLAYER_STATS['clicks']}")
+    st.write(f"Cards Collected: {len(PLAYER_STATS['cards_collected'])}")
+    st.write(f"Chests Opened: {PLAYER_STATS['chests_opened']}")
+
+st.sidebar.markdown("---")
+if st.sidebar.button("Save Game"):
+    save_game()
+    st.sidebar.success("Game saved!")
