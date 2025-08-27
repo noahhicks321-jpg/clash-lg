@@ -190,3 +190,56 @@ def sell_card(game: GameState, card: Card):
     print(f"MPS: {game.money_per_second}")
     print(f"Upgrades bought: {game.upgrades_purchased}")
 
+# -----------------------------
+# Arena System
+# -----------------------------
+class Arena:
+    def __init__(self, level, name, unlock_condition, chest_unlocks, card_unlocks):
+        self.level = level
+        self.name = name
+        self.unlock_condition = unlock_condition  # money OR stat requirement
+        self.chest_unlocks = chest_unlocks  # which chest types become available
+        self.card_unlocks = card_unlocks    # which cards enter the pool
+
+
+# Define Arenas
+ARENAS = [
+    Arena(1, "Training Camp", {"money": 0}, ["Wooden Chest"], ["Knight", "Archers", "Bomber"]),
+    Arena(2, "Goblin Stadium", {"money": 500}, ["Silver Chest"], ["Musketeer", "Mini P.E.K.K.A"]),
+    Arena(3, "Bone Pit", {"money": 2000}, ["Gold Chest"], ["Hog Rider", "Baby Dragon"]),
+    Arena(4, "P.E.K.K.A’s Playhouse", {"money": 10000}, ["Magical Chest"], ["Prince", "Witch"]),
+    Arena(5, "Legendary Arena", {"money": 50000}, ["Legendary Chest"], ["Sparky", "Electro Wizard", "Mega Knight"]),
+]
+
+
+# -----------------------------
+# Check Arena Unlocks
+# -----------------------------
+def update_arena_progress(game: GameState):
+    for arena in ARENAS:
+        if game.arena_level < arena.level:
+            cond = arena.unlock_condition
+            if "money" in cond and game.total_money_made >= cond["money"]:
+                game.arena_level = arena.level
+                return f"🎉 You unlocked {arena.name}!"
+    return None
+
+
+# -----------------------------
+# Filter Available Chests/Cards
+# -----------------------------
+def available_chests(game: GameState):
+    unlocked = []
+    for arena in ARENAS:
+        if game.arena_level >= arena.level:
+            unlocked.extend(arena.chest_unlocks)
+    return [c for c in CHESTS if c.name in unlocked]
+
+
+def available_cards(game: GameState):
+    unlocked = []
+    for arena in ARENAS:
+        if game.arena_level >= arena.level:
+            unlocked.extend(arena.card_unlocks)
+    return [c for c in CARD_POOL if c.name in unlocked]
+
