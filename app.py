@@ -104,7 +104,89 @@ if __name__ == "__main__":
         UPGRADES[0].apply(game)
         game.upgrades_purchased.append(UPGRADES[0].name)
 
+    # -----------------------------
+# Card System
+# -----------------------------
+class Card:
+    def __init__(self, name, rarity, base_value):
+        self.name = name
+        self.rarity = rarity  # Common, Rare, Epic, Legendary
+        self.base_value = base_value
+
+    def __repr__(self):
+        return f"{self.rarity} {self.name} (Value: {self.base_value})"
+
+
+# Define card pool
+CARD_POOL = [
+    Card("Knight", "Common", 5),
+    Card("Archers", "Common", 5),
+    Card("Bomber", "Common", 6),
+    Card("Musketeer", "Rare", 20),
+    Card("Mini P.E.K.K.A", "Rare", 25),
+    Card("Hog Rider", "Rare", 30),
+    Card("Baby Dragon", "Epic", 100),
+    Card("Prince", "Epic", 120),
+    Card("Witch", "Epic", 140),
+    Card("Sparky", "Legendary", 500),
+    Card("Electro Wizard", "Legendary", 600),
+    Card("Mega Knight", "Legendary", 750),
+]
+
+
+# -----------------------------
+# Chest System
+# -----------------------------
+class Chest:
+    def __init__(self, name, cost, rarity_weights):
+        self.name = name
+        self.cost = cost
+        self.rarity_weights = rarity_weights  # Dict: {"Common": %, "Rare": %, "Epic": %, "Legendary": %}
+
+    def open(self, game: GameState):
+        if game.money < self.cost:
+            return None, "Not enough money!"
+        game.money -= self.cost
+        game.total_chests_opened += 1
+
+        rarity = random.choices(
+            population=list(self.rarity_weights.keys()),
+            weights=list(self.rarity_weights.values()),
+            k=1
+        )[0]
+
+        # Get random card of that rarity
+        candidates = [c for c in CARD_POOL if c.rarity == rarity]
+        pulled = random.choice(candidates)
+
+        # Add to collection
+        game.owned_cards.append(pulled)
+        game.total_cards_collected += 1
+
+        return pulled, f"You pulled a {rarity} card: {pulled.name}!"
+
+
+# Define chest types
+CHESTS = [
+    Chest("Wooden Chest", 50, {"Common": 80, "Rare": 15, "Epic": 5, "Legendary": 0}),
+    Chest("Silver Chest", 200, {"Common": 65, "Rare": 25, "Epic": 8, "Legendary": 2}),
+    Chest("Gold Chest", 1000, {"Common": 45, "Rare": 35, "Epic": 15, "Legendary": 5}),
+    Chest("Magical Chest", 5000, {"Common": 30, "Rare": 40, "Epic": 20, "Legendary": 10}),
+    Chest("Legendary Chest", 20000, {"Common": 0, "Rare": 0, "Epic": 40, "Legendary": 60}),
+]
+
+
+# -----------------------------
+# Selling Cards
+# -----------------------------
+def sell_card(game: GameState, card: Card):
+    game.money += card.base_value
+    game.owned_cards.remove(card)
+    game.total_cards_sold += 1
+
+
     print(f"Money: {game.money:.2f}")
     print(f"MPC: {game.money_per_click}")
     print(f"MPS: {game.money_per_second}")
     print(f"Upgrades bought: {game.upgrades_purchased}")
+
